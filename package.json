@@ -1,0 +1,76 @@
+{
+  "name": "@rjwalters/ged-tools",
+  "version": "0.2.1",
+  "private": true,
+  "type": "module",
+  "description": "GEDCOM editing and genealogy archive research tools.",
+  "license": "MIT",
+  "engines": {
+    "node": ">=22"
+  },
+  "exports": {
+    ".": "./src/index.js",
+    "./gedcom": "./src/gedcom.js",
+    "./ged-edit": "./src/ged-edit.js",
+    "./patches": "./src/patches.js",
+    "./lib/tools": "./src/lib/tools.js",
+    "./lib/ged-edit": "./src/lib/ged-edit.js",
+    "./lib/controls": "./src/lib/controls.js",
+    "./lib/matricula": "./src/lib/matricula.js",
+    "./lib/gro-classify": "./src/lib/gro-classify.js",
+    "./lib/similarity": "./src/lib/similarity.js",
+    "./lib/config": "./src/lib/config.js",
+    "./lib/playwright": "./src/lib/playwright.js",
+    "./lib/fs-film-data": "./src/lib/fs-film-data.js",
+    "./lib/capture-guard": "./src/lib/capture-guard.js",
+    "./lib/freebmd": "./src/lib/freebmd.js",
+    "./lib/tab-pool": "./src/lib/tab-pool.js",
+    "./lib/patches": "./src/lib/patches.js",
+    "./lib/prdh-classify": "./src/lib/prdh-classify.js",
+    "./lib/fs-classify": "./src/lib/fs-classify.js",
+    "./lib/gedcom": "./src/lib/gedcom.js",
+    "./scripts/cdp-download-guard": "./src/scripts/cdp-download-guard.js",
+    "./scripts/prdh-record": "./src/scripts/prdh-record.js",
+    "./scripts/prdh-search": "./src/scripts/prdh-search.js",
+    "./scripts/fs-image": "./src/scripts/fs-image.js",
+    "./scripts/fs-catalog": "./src/scripts/fs-catalog.js",
+    "./scripts/cdp-transport": "./src/scripts/cdp-transport.js",
+    "./scripts/fs-film": "./src/scripts/fs-film.js",
+    "./scripts/fs-fulltext": "./src/scripts/fs-fulltext.js",
+    "./scripts/prdh-familles": "./src/scripts/prdh-familles.js",
+    "./scripts/matricula": "./src/scripts/matricula.js",
+    "./scripts/gro-search": "./src/scripts/gro-search.js",
+    "./scripts/archion": "./src/scripts/archion.js",
+    "./scripts/prdh-couples": "./src/scripts/prdh-couples.js",
+    "./scripts/register-cache": "./src/scripts/register-cache.js",
+    "./scripts/register-batch": "./src/scripts/register-batch.js",
+    "./scripts/fs-books": "./src/scripts/fs-books.js",
+    "./scripts/fs-personas": "./src/scripts/fs-personas.js",
+    "./scripts/freebmd": "./src/scripts/freebmd.js",
+    "./scripts/register-seek": "./src/scripts/register-seek.js",
+    "./scripts/fs-audit": "./src/scripts/fs-audit.js",
+    "./scripts/browser-lock": "./src/scripts/browser-lock.js",
+    "./scripts/cdp-preflight": "./src/scripts/cdp-preflight.js"
+  },
+  "files": [
+    "src/",
+    "PRIVACY.md",
+    "bin/"
+  ],
+  "scripts": {
+    "test": "node --test",
+    "audit:release": "node scripts/audit-release.js",
+    "prepack": "npm test && npm run audit:release"
+  },
+  "bin": {
+    "ged-tools": "bin/ged-tools.js"
+  },
+  "peerDependencies": {
+    "playwright": ">=1.50.0"
+  },
+  "peerDependenciesMeta": {
+    "playwright": {
+      "optional": true
+    }
+  }
+}

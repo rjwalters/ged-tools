@@ -1,0 +1,7 @@
+node_modules/
+*.tgz
+.env*
+*.ged
+*.har
+*.cookies
+.DS_Store
