@@ -8,7 +8,7 @@ Family-specific default queries and identifiers were replaced by explicit
 caller-supplied controls. No data export, captured research page, credential,
 account configuration, browser profile or original commit was copied here.
 
-The npm package allowlist contains runtime source, the CLI, README, this file
+The npm package allowlist contains runtime source, the CLI, README, this file,
 the MIT license and package metadata. The release audit checks exact repository and package
 file lists, rejects symlinks and unexpected files, and checks a few secret/path
 patterns. `prepack` runs tests and that audit. These checks constrain the file
@@ -22,8 +22,8 @@ Before publication:
 3. Inspect the actual archive and verify it matches the reviewed source.
 4. Review every Git commit and its author metadata. Never import private
    repository history, remotes, hooks or automation configuration.
-5. Keep the MIT license in the release. Remove the npm `private` guard only for an intentional
-   npm release; GitHub visibility is a separate decision.
+5. Keep the MIT license in the release. Publish only the reviewed archive,
+   then verify its registry integrity and create the matching GitHub release.
 
 Tests must run without live accounts or paid requests. A parser test may invent
 a result page; it must not copy a saved family research page. Synthetic controls

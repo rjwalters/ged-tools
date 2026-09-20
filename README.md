@@ -6,9 +6,9 @@ Requires Node.js 22 or later. Playwright is an optional peer dependency needed
 by GRO, PRDH search/record, and FamilySearch books/tree-audit commands; the
 remaining commands use native HTTP or the Chrome DevTools Protocol (CDP).
 
-This is an unpublished candidate for `rjwalters/ged-tools`. It is [MIT licensed](LICENSE); npm publication remains disabled
-with `private: true` pending an intentional npm release. Tests are synthetic and
-offline. Extraction tests do not establish that an external site's current
+This package is [MIT licensed](LICENSE). Source and releases are available at
+[rjwalters/ged-tools](https://github.com/rjwalters/ged-tools). Tests are synthetic
+and offline. Extraction tests do not establish that an external site's current
 interface works; no live queries or paid downloads were made to validate this
 extraction. Existing site-specific limits and failure classifications are retained.
 
@@ -37,10 +37,10 @@ not an atomic transaction. `applyPatches` mutates the supplied model.
 
 ## Commands
 
-Install the reviewed tarball into a consuming project, then use its local CLI:
+Install the package into a consuming project, then use its local CLI:
 
 ```sh
-npm install /path/to/rjwalters-ged-tools-0.2.1.tgz
+npm install --save-exact @rjwalters/ged-tools@0.2.2
 npx --no-install ged-tools --help
 npx --no-install ged-tools --project /path/to/project fs-catalog --help
 ```
@@ -140,6 +140,13 @@ The library does not anonymize input or captured output. There is no telemetry,
 but research commands intentionally send queries to the selected archive.
 Keep credentials, cookies, browser profiles, control queries, budgets and
 captures out of the tool repository. See [PRIVACY.md](PRIVACY.md).
+
+Releases are published manually. Before publishing, follow the review in
+[PRIVACY.md](PRIVACY.md), run `npm pack --pack-destination /path/to/output`,
+and inspect the resulting archive. Publish that exact reviewed archive with
+`npm publish /path/to/output/rjwalters-ged-tools-VERSION.tgz --access public`.
+Create a matching `vVERSION` tag and GitHub release for the reviewed commit.
+Never overwrite an existing version with different contents.
 
 Similarity scoring follows the design of
 [elliotchance/gedcom](https://github.com/elliotchance/gedcom); its algorithm

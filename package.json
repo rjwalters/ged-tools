@@ -1,7 +1,6 @@
 {
   "name": "@rjwalters/ged-tools",
-  "version": "0.2.1",
-  "private": true,
+  "version": "0.2.2",
   "type": "module",
   "description": "GEDCOM editing and genealogy archive research tools.",
   "license": "MIT",
@@ -72,5 +71,14 @@
     "playwright": {
       "optional": true
     }
+  },
+  "homepage": "https://github.com/rjwalters/ged-tools",
+  "bugs": "https://github.com/rjwalters/ged-tools/issues",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/rjwalters/ged-tools.git"
+  },
+  "publishConfig": {
+    "access": "public"
   }
 }
