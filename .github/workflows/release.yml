@@ -1,0 +1,58 @@
+# Publish to npm when a version tag is pushed.
+#
+# The private-indicator audit cannot run here: it checks the package against a
+# consumer's private genealogy data, which never enters this repository. It
+# runs on the operator's machine, and its result is pinned by
+# release-manifests/<version>.json (per-file SHA-256 of the audited tarball,
+# written by scripts/release-manifest.js). This workflow publishes only a
+# package whose every file matches that manifest.
+#
+# Publishing uses npm trusted publishing (OIDC): no npm token is stored
+# anywhere. It must be enabled once on npmjs.com for @rjwalters/ged-tools,
+# naming this repository and this workflow file.
+name: release
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: npm with trusted-publishing support
+        run: npm install -g npm@11
+
+      - name: Tag matches package version
+        run: |
+          version="$(node -p "require('./package.json').version")"
+          if [ "v${version}" != "${GITHUB_REF_NAME}" ]; then
+            echo "tag ${GITHUB_REF_NAME} does not match package.json version ${version}"
+            exit 1
+          fi
+
+      - name: Tests
+        run: npm test
+
+      - name: Release boundary
+        run: npm run audit:release
+
+      - name: Pack
+        run: npm pack --ignore-scripts
+
+      - name: Matches the audited manifest
+        run: node scripts/release-manifest.js verify "rjwalters-ged-tools-$(node -p "require('./package.json').version").tgz"
+
+      - name: Publish with provenance
+        run: npm publish "rjwalters-ged-tools-$(node -p "require('./package.json').version").tgz" --provenance --access public

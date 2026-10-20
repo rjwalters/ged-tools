@@ -13,6 +13,8 @@ const allowed = new Set([
   "bin/ged-tools.js",
   "package.json",
   "scripts/audit-release.js",
+  "scripts/release-manifest.js",
+  ".github/workflows/release.yml",
   "src/ged-edit.js",
   "src/gedcom.js",
   "src/index.js",
@@ -127,7 +129,8 @@ function walk(dir) {
     const stat = lstatSync(path);
     if (stat.isSymbolicLink()) { failures.push(`Symlink: ${rel}`); continue; }
     if (stat.isDirectory()) { walk(path); continue; }
-    if (!allowed.has(rel)) failures.push(`Unreviewed file: ${rel}`);
+    // Release manifests are per-file hashes of an audited package, one per version.
+    if (!allowed.has(rel) && !/^release-manifests\/\d+\.\d+\.\d+\.json$/.test(rel)) failures.push(`Unreviewed file: ${rel}`);
     const text = readFileSync(path, 'utf8');
     if (/\/(?:Users|home)\/[^/\s]+\//.test(text)) failures.push(`Home path: ${rel}`);
     if (/-----BEGIN (?:RSA |OPENSSH |EC )?PRIVATE KEY-----/.test(text)) failures.push(`Key: ${rel}`);

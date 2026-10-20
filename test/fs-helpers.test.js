@@ -35,3 +35,13 @@ test('frameArks: ark URLs and objects to bare arks, order kept, gaps visible', (
   );
   assert.deepEqual(frameArks(undefined), []);
 });
+
+test('release manifest: identical contents pass; any drift is refused', async () => {
+  const { compare } = await import('../scripts/release-manifest.js');
+  const m = { name: 'pkg', version: '1.0.0', files: { 'a.js': 'h1', 'b.js': 'h2' } };
+  assert.deepEqual(compare(m, structuredClone(m)), []);
+  assert.deepEqual(compare(m, { ...m, files: { 'a.js': 'h1', 'b.js': 'XX' } }), ['content differs: b.js']);
+  assert.deepEqual(compare(m, { ...m, files: { 'a.js': 'h1' } }), ['missing from package: b.js']);
+  assert.deepEqual(compare(m, { ...m, files: { ...m.files, 'c.js': 'h3' } }), ['not in manifest: c.js']);
+  assert.deepEqual(compare(m, { ...m, version: '1.0.1' }), ['version: manifest 1.0.0, package 1.0.1']);
+});
