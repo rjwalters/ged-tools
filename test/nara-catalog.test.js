@@ -50,7 +50,7 @@ function scratch(t) {
 
 test('URL builders: query is encoded; a NAID must be digits', () => {
   assert.match(buildSearchUrl('"Eakin, Geo W"', { limit: 5 }), /\/proxy\/v3\/records\/search\?q=%22Eakin%2C\+Geo\+W%22&limit=5&page=1$/);
-  assert.match(buildRecordUrl(' 32283591 '), /naId_is=32283591&/);
+  assert.match(buildRecordUrl(' 22222222 '), /naId_is=22222222&/);
   assert.throws(() => buildRecordUrl('3228x'), (e) => e instanceof NaraError && e.code === 1);
   assert.throws(() => buildSearchUrl('  '), (e) => e.code === 1);
 });

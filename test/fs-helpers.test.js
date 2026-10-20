@@ -27,11 +27,11 @@ test('recordGetExpr accepts only 1:1 record ids', () => {
 test('frameArks: ark URLs and objects to bare arks, order kept, gaps visible', () => {
   assert.deepEqual(
     frameArks([
-      'https://familysearch.org/ark:/61903/3:1:939L-F857-P/image.xml',
-      { ark: 'ark:/61903/3:1:939L-F8VG-Y' },
+      'https://familysearch.org/ark:/61903/3:1:ZZZZ-AAA1-B/image.xml',
+      { ark: 'ark:/61903/3:1:ZZZZ-AAA2-C' },
       'garbage',
     ]),
-    ['3:1:939L-F857-P', '3:1:939L-F8VG-Y', null],
+    ['3:1:ZZZZ-AAA1-B', '3:1:ZZZZ-AAA2-C', null],
   );
   assert.deepEqual(frameArks(undefined), []);
 });
