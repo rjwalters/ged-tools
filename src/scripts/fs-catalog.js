@@ -1,4 +1,4 @@
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { openTab, closeTab, connect, evaluate, requireBrowserLock, browserLockHint } from './cdp-transport.js';
 import { isSignedOut } from './fs-film.js';
 import { filmDataExpr, filmsInCatalog, selectCatalog, padDgs } from '../lib/fs-film-data.js';
@@ -516,6 +516,48 @@ async function fetchFilmData(cdp, seedDgs, catalogId) {
   }
 }
 
+/** film-data `images` entries (ark URLs, sometimes objects) -> bare `3:1:` arks in film order. */
+export function frameArks(images) {
+  return (images ?? []).map((x) => {
+    const s = typeof x === 'string' ? x : JSON.stringify(x);
+    const m = s.match(/3:1:[0-9A-Z]{4}-[0-9A-Z]{3,4}(?:-[0-9A-Z]{1,4})*/);
+    return m ? m[0] : null;
+  });
+}
+
+async function framesCmd(dgs, catalogId, { timeoutMs, asJson, out, at }) {
+  return withPage(itemUrl(catalogId), timeoutMs, async (cdp) => {
+    let j;
+    try {
+      const raw = await evaluate(cdp, filmDataExpr(dgs, { cat: catalogId, withImages: true }));
+      j = typeof raw === 'string' ? JSON.parse(raw) : raw;
+    } catch (err) {
+      console.error(`film-data POST failed: ${String(err?.message ?? err).slice(0, 200)}`);
+      return 4;
+    }
+    if (!j || j.error) {
+      console.error(`film-data POST answered ${j?.error ?? 'nothing'} — signed out, or the DGS is not in that catalogue`);
+      return 4;
+    }
+    const arks = frameArks(j.images);
+    const missing = arks.filter((a) => !a).length;
+    const result = { dgs: padDgs(dgs), catalog: catalogId, frames: arks.length, unresolved: missing, arks };
+    if (out) {
+      writeFileSync(out, JSON.stringify(result, null, 1));
+      console.error(`wrote ${out}`);
+    }
+    if (at !== null) {
+      const ark = arks[at];
+      if (!ark) { console.error(`no frame ${at} (roll has ${arks.length})`); return 4; }
+      console.log(ark);
+      return 0;
+    }
+    if (asJson) console.log(JSON.stringify(result, null, 1));
+    else console.log(`DGS ${result.dgs}: ${arks.length} frame(s)${missing ? `, ${missing} without an ark` : ''}; first ${arks[0] ?? '-'}, last ${arks.at(-1) ?? '-'}`);
+    return arks.length ? 0 : 4;
+  });
+}
+
 async function itemCmd(catalogId, { timeoutMs, evalFile, asJson }) {
   return withPage(itemUrl(catalogId), timeoutMs, async (cdp, here) => {
 
@@ -618,6 +660,11 @@ function usage() {
   film  <dgs> --cat <koha:NNNNN>  open the roll and report what the viewer really
                                   renders — the SINGLE-IMAGE view, which is the only
                                   one where a restriction states itself
+  frames <dgs> --cat <koha:NNNNN> [--out f.json] [--at N]
+                                  the roll's whole frame list from the film-data POST,
+                                  as bare 3:1 image arks in film order (frame N =
+                                  arks[N], the viewer's i=N). --at N prints just that
+                                  frame's ark, ready for fs-image.js get
   url   <url>                     settle any catalog url and dump text + links
   --self-test                     pure-function tests; no browser, no lock, no network
 
@@ -678,6 +725,20 @@ async function main(argv) {
       }
       return process.exit(await filmCmd(target, cat, opts));
     }
+    case 'frames': {
+      const cat = arg(argv, '--cat');
+      if (!cat) {
+        console.error('frames needs --cat <koha:NNNNN>: the film-data POST is scoped to a catalogue');
+        process.exit(1);
+      }
+      const atRaw = arg(argv, '--at');
+      const at = atRaw === null ? null : Number(atRaw);
+      if (at !== null && !(Number.isInteger(at) && at >= 0)) {
+        console.error('--at wants a frame number (0-based, as the viewer counts)');
+        process.exit(1);
+      }
+      return process.exit(await framesCmd(target, cat, { ...opts, out: arg(argv, '--out'), at }));
+    }
     case 'url':
       return process.exit(await urlCmd(target, opts));
     default:
@@ -685,6 +746,6 @@ async function main(argv) {
       process.exit(1);
   }
 }
-export { FS, numericCatalogId, q, LOCATION_HINT, normDgs, filmDataSource, sleep, main, usage, arg, placeCmd, withPage, runEval, itemCmd, fetchFilmData, filmCmd, urlCmd };
+export { framesCmd, FS, numericCatalogId, q, LOCATION_HINT, normDgs, filmDataSource, sleep, main, usage, arg, placeCmd, withPage, runEval, itemCmd, fetchFilmData, filmCmd, urlCmd };
 
 async function selfTest() { throw new Error("Run npm test in the ged-tools source checkout; private fixtures are not distributed."); }

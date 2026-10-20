@@ -49,6 +49,26 @@ export function jsonGetExpr(path) {
 })()`;
 }
 
+/** GEDCOM X record JSON -> where its image lives: FamilySearch image arks and/or external hosts (Fold3 …). */
+export function recordLinks(json) {
+  const text = JSON.stringify(json ?? {});
+  const imageArks = [...new Set(text.match(/3:1:[0-9A-Z]{4}-[0-9A-Z]{3,4}(?:-[0-9A-Z]{1,4})*/g) ?? [])];
+  const external = [...new Set((text.match(/https?:\/\/[^"\s]+/g) ?? [])
+    .filter((u) => !/familysearch\.org|gedcomx\.org|fslocal\.org/i.test(u)))];
+  const citation = (json?.sourceDescriptions ?? []).flatMap((d) => d.citations ?? []).map((c) => c.value).find(Boolean) ?? '';
+  return { imageArks, external, citation };
+}
+
+/** In-page fetch of one record as GEDCOM X; the platform API wants the session as a bearer. */
+export function recordGetExpr(pid) {
+  if (!/^[0-9A-Z]{4}-[0-9A-Z]{3,4}$/.test(String(pid))) throw new Error(`not a 1:1 record id: ${pid}`);
+  return `(async () => {
+  const m = document.cookie.match(/fssessionid=([^;]+)/);
+  const r = await fetch('/platform/records/personas/${pid}', { credentials: 'include', headers: { accept: 'application/x-gedcomx-v1+json', ...(m ? { Authorization: 'Bearer ' + m[1] } : {}) } });
+  return { status: r.status, text: await r.text() };
+})()`;
+}
+
 export function summarizePersona(entry) {
   const c = entry?.content?.gedcomx ?? {};
   const persons = c.persons ?? [];
@@ -214,6 +234,33 @@ async function collectionsCmd(o) {
   });
 }
 
+async function recordCmd(pids, o) {
+  for (const pid of pids) {
+    try { recordGetExpr(pid); } catch (e) { console.error(String(e.message)); return 1; }
+  }
+  return withPage(SEARCH_PAGE, o.settleMs, async (cdp) => {
+    const dead = await guardSession(cdp);
+    if (dead) return dead;
+    const out = {};
+    let found = 0;
+    for (const pid of pids) {
+      const res = await evaluate(cdp, recordGetExpr(pid));
+      if (res.status !== 200 || !/^[[{]/.test(String(res.text ?? '').trim())) {
+        console.error(`${pid}: HTTP ${res.status} ${String(res.text ?? '').slice(0, 120)}`);
+        out[pid] = { status: res.status };
+        continue;
+      }
+      const links = recordLinks(JSON.parse(res.text));
+      out[pid] = { status: 200, ...links };
+      if (links.imageArks.length || links.external.length) found += 1;
+      if (!o.asJson) console.log(`${pid}  images: ${links.imageArks.join(' ') || '-'}  external: ${links.external.join(' ') || '-'}`);
+    }
+    if (o.out) { writeFileSync(o.out, JSON.stringify(out, null, 1)); console.error(`wrote ${o.out}`); }
+    if (o.asJson) console.log(JSON.stringify(out, null, 1));
+    return found ? 0 : 4;
+  });
+}
+
 function arg(argv, name, fallback = null) {
   const i = argv.indexOf(name);
   if (i === -1 || i + 1 >= argv.length) return fallback;
@@ -235,6 +282,12 @@ function usage() {
       Use collection identifiers returned by a collection search
       when the site's own collection browser would not surface it:
         ged-tools fs-personas collections --grep '1812' --out colls.json
+  record <id> [<id>…] [--out <file.json>] [--json]
+      resolve 1:1 record ids to where the image lives: FamilySearch image arks
+      (for fs-image.js) and/or external hosts — e.g. the Civil War service
+      records, whose cards are on Fold3 (and free at the National Archives:
+      see nara-catalog). Fetches /platform/records/personas/<id> with the
+      session as a bearer token
   --self-test                          pure-function tests; no browser, no lock
 
 EXIT CODES: 0 answered · 1 bad args · 2 signed out · 3 session probe inconclusive · 4 clean but empty
@@ -254,8 +307,12 @@ async function main(argv) {
     usage();
     return cmd ? 0 : 1;
   }
-  if (cmd !== 'search' && cmd !== 'collections') {
+  if (cmd !== 'search' && cmd !== 'collections' && cmd !== 'record') {
     usage();
+    return 1;
+  }
+  if (cmd === 'record' && (!argv[1] || argv[1].startsWith('--'))) {
+    console.error('record: needs one or more 1:1 record ids — see --help');
     return 1;
   }
   if (cmd === 'search' && (!argv[1] || argv[1].startsWith('--'))) {
@@ -277,8 +334,13 @@ async function main(argv) {
   }
 
   requireBrowserLock('fs-personas');
+  if (cmd === 'record') {
+    const pids = [];
+    for (let i = 1; i < argv.length && !argv[i].startsWith('--'); i++) pids.push(argv[i]);
+    return recordCmd(pids, o);
+  }
   return cmd === 'search' ? searchCmd(argv[1], o) : collectionsCmd(o);
 }
-export { FS_ORIGIN, main, usage, arg, searchCmd, withPage, sleep, SEARCH_PAGE, guardSession, collectionsCmd, COLLECTIONS_PAGE };
+export { FS_ORIGIN, main, usage, arg, searchCmd, recordCmd, withPage, sleep, SEARCH_PAGE, guardSession, collectionsCmd, COLLECTIONS_PAGE };
 
 function selfTest() { throw new Error("Run npm test in the ged-tools source checkout; private fixtures are not distributed."); }
