@@ -8,11 +8,10 @@
 # package whose every file matches that manifest.
 #
 # Publishing uses npm trusted publishing (OIDC): no npm token is stored
-# anywhere. It is configured on npmjs.com for @rjwalters/ged-tools as
-# STAGE-ONLY: this workflow can only stage a version; it goes live when the
-# maintainer approves it (`npm stage approve <id>`, with 2FA). Before
-# approving, the staged tarball can be checked against the same manifest:
-#   npm stage download <id> && node scripts/release-manifest.js verify <tgz>
+# anywhere. It is configured on npmjs.com for @rjwalters/ged-tools with
+# direct publish allowed (the maintainer's choice, for convenience): a tag
+# that passes the manifest check goes live. To require approval instead,
+# untick direct publish there and change the last step to `npm stage publish`.
 name: release
 
 on:
@@ -57,5 +56,5 @@ jobs:
       - name: Matches the audited manifest
         run: node scripts/release-manifest.js verify "rjwalters-ged-tools-$(node -p "require('./package.json').version").tgz"
 
-      - name: Stage with provenance (goes live only on maintainer approval)
-        run: npm stage publish "./rjwalters-ged-tools-$(node -p "require('./package.json').version").tgz" --provenance --access public
+      - name: Publish with provenance
+        run: npm publish "./rjwalters-ged-tools-$(node -p "require('./package.json').version").tgz" --provenance --access public
