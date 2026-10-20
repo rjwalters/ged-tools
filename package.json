@@ -1,6 +1,6 @@
 {
   "name": "@rjwalters/ged-tools",
-  "version": "0.2.2",
+  "version": "0.2.3",
   "type": "module",
   "description": "GEDCOM editing and genealogy archive research tools.",
   "license": "MIT",
