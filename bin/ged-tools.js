@@ -5,7 +5,7 @@ const commands = new Set([
   'fs-image', 'fs-books', 'fs-audit', 'prdh-couples', 'prdh-familles',
   'prdh-search', 'prdh-record', 'archion', 'matricula', 'gro-search',
   'freebmd', 'register-cache', 'register-seek', 'register-batch',
-  'nara-catalog', 'nj-archives',
+  'nara-catalog', 'nj-archives', 'freereg',
 ]);
 const args = process.argv.slice(2);
 if (args[0] === '--project') {
