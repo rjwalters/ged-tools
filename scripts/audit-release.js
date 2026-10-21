@@ -63,6 +63,7 @@ const allowed = new Set([
   "src/scripts/register-seek.js",
   "test/core.test.js",
   "test/fs-helpers.test.js",
+  "test/gro-classify.test.js",
   "test/nara-catalog.test.js",
   "test/nj-archives.test.js",
   "test/research.test.js"

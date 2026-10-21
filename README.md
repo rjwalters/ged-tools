@@ -73,7 +73,7 @@ commands. No command logs in to an account on import. Archion's explicit
 | `prdh-record` | Metered retrieval: `famille`, `union`, `acte`, or `individu`, then record ID |
 | `archion` | Archive browsing, session/login, OCR, viewing, guarded downloads and budget ledger |
 | `matricula` | Parish/register discovery and page retrieval |
-| `gro-search` | England/Wales index search: surname and `--year YYYY` |
+| `gro-search` | England/Wales index search: surname, `--year YYYY` and `--sex M\|F`; follows result pages |
 | `freebmd` | England/Wales queries with known-positive controls before negative results |
 | `register-cache` | Address or deposit files into the shared frame cache |
 | `register-seek` | Locate a register frame by a supplied year/frame mapping |
