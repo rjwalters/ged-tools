@@ -54,7 +54,8 @@ export function recordLinks(json) {
   const text = JSON.stringify(json ?? {});
   const imageArks = [...new Set(text.match(/3:1:[0-9A-Z]{4}-[0-9A-Z]{3,4}(?:-[0-9A-Z]{1,4})*/g) ?? [])];
   const external = [...new Set((text.match(/https?:\/\/[^"\s]+/g) ?? [])
-    .filter((u) => !/familysearch\.org|gedcomx\.org|fslocal\.org/i.test(u)))];
+    // Real hosts only: FamilySearch embeds dotless pseudo-URLs (http://treatment/…, http://confidence/92).
+    .filter((u) => /^https?:\/\/[^/]*\.[^/]/.test(u) && !/familysearch\.org|gedcomx\.org|fslocal\.org/i.test(u)))];
   const citation = (json?.sourceDescriptions ?? []).flatMap((d) => d.citations ?? []).map((c) => c.value).find(Boolean) ?? '';
   return { imageArks, external, citation };
 }

@@ -9,6 +9,8 @@ test('recordLinks: image arks and external hosts; vocabulary and internal hosts 
       { citations: [{ value: 'Entry for Example, Synthetic Collection, 1862.' }], about: 'http://www.fold3.com/document.php?doc=1&xid=2&p=ma' },
       { about: 'https://www.familysearch.org/ark:/61903/3:1:ABCD-EFG9-HI' },
       { about: 'http://group-service.rms.records.service.prod.us-east-1.prod.fslocal.org/group/X' },
+      { about: 'http://treatment/NameTreatment/ver/1' },
+      { about: 'http://confidence/92' },
     ],
     persons: [{ facts: [{ type: 'http://gedcomx.org/MilitaryService' }] }],
   };
