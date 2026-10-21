@@ -6,7 +6,7 @@ import { loadChromium } from '../lib/playwright.js';
 import { ensureCdpTarget, closeCdpTarget } from './cdp-preflight.js';
 import { requireBrowserLock } from './cdp-transport.js';
 import { root } from '../lib/tools.js';
-import { classify, exitCodeFor, isLoginUrl, relPathFor } from '../lib/gro-classify.js';
+import { classify, exitCodeFor, isLoginUrl, relPathFor, normalizeSex, splitForename, pageInfo, parseResults } from '../lib/gro-classify.js';
 import { decideWrite, exitCodeForWrite } from '../lib/capture-guard.js';
 export async function main(inputArgs = process.argv.slice(2)) {
 
@@ -24,7 +24,8 @@ const flag = (n, d) => {
 };
 const surname = argv.find((a, i) => !a.startsWith('--') && (i === 0 || !argv[i - 1].startsWith('--')));
 const forename = flag('forename');
-const sex = (flag('sex') || '').toUpperCase();
+const sexArg = flag('sex');
+const sex = normalizeSex(sexArg);
 const year = flag('year');
 const range = flag('range', '1');
 const district = flag('district');
@@ -32,7 +33,12 @@ const mmn = flag('mmn');
 const index = flag('index', 'birth').toLowerCase();
 
 if (!surname || !year) {
-  console.error('usage: ged-tools gro-search <surname> --year YYYY [--forename X] [--sex M|F] [--range 0|1|2] [--district X] [--mmn X] [--index birth|death] [--force]');
+  console.error('usage: ged-tools gro-search <surname> --year YYYY --sex M|F [--forename X] [--range 0|1|2] [--district X] [--mmn X] [--index birth|death] [--force]');
+  process.exit(1);
+}
+
+if (!sex) {
+  console.error(`--sex M|F is required (got ${sexArg === undefined ? 'none' : `"${sexArg}"`}) — GRO refuses a search without one and re-renders the form.`);
   process.exit(1);
 }
 
@@ -73,8 +79,10 @@ try {
   await page.waitForTimeout(1200);
 
   await page.fill('input[name=Surname]', surname);
-  if (forename) await page.fill('input[name=Forename1]', forename);
-  if (sex) await page.selectOption('select[name=Gender]', sex);
+  const [forename1, forename2] = splitForename(forename);
+  if (forename1) await page.fill('input[name=Forename1]', forename1);
+  if (forename2) await page.fill('input[name=Forename2]', forename2);
+  await page.selectOption('select[name=Gender]', sex);
   if (district) await page.fill('input[name=District]', district);
   if (mmn) await page.fill('input[name=MothersSurname]', mmn);
 
@@ -84,11 +92,27 @@ try {
   ]);
   await page.waitForTimeout(2500);
 
-  const raw = await page.evaluate(() => document.body.innerText);
-  const text = raw.replace(/ /g, ' ');
+  const pageText = async () => (await page.evaluate(() => document.body.innerText)).replace(/\u00a0/g, ' ');
+  let text = await pageText();
 
   const verdict = classify({ text, finalUrl: page.url(), url: SEARCH });
-  const slug = [surname, forename, sex, year, district].filter(Boolean).join('-')
+  // GRO shows 50 results a page; follow "Next Page" so the capture holds them all.
+  const { pages } = pageInfo(text);
+  let fetched = 1;
+  while (verdict === 'OK' && fetched < pages) {
+    const next = page.locator('input[name=SearchIndexes][value="Next Page"]');
+    if (!(await next.count())) break;
+    await Promise.all([
+      page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 60000 }).catch(() => {}),
+      next.first().click(),
+    ]);
+    await page.waitForTimeout(2500);
+    const more = await pageText();
+    if (pageInfo(more).page !== fetched + 1) break;
+    fetched += 1;
+    text += `\n\n----- page ${fetched} of ${pages} -----\n\n${more}`;
+  }
+  const slug = [surname, forename, sex, year, district, mmn && `mmn-${mmn}`].filter(Boolean).join('-')
     .replace(/[^a-zA-Z0-9-]+/g, '-').toLowerCase();
   const file = join(outDir, relPathFor(slug, verdict));
 
@@ -114,27 +138,10 @@ try {
   } else if (verdict !== 'OK') {
     console.error('the Results: section never rendered (the search form came back instead) — nothing parsed, page quarantined.');
   } else {
-    const tail = text.slice(text.lastIndexOf('Results:'));
-
-    const refRe = /GRO Reference:\s*(\d{4})\s+(\w+)\s+Quarter\s+in\s+([A-Z .'-]+?)\s+Volume\s+(\S+)\s+Page\s+(\S+)/g;
-    const lines = tail.split('\n').map((l) => l.trim()).filter(Boolean);
-    const records = [];
-    for (let i = 0; i < lines.length; i++) {
-      const m = refRe.exec(lines[i]);
-      refRe.lastIndex = 0;
-      if (!m) continue;
-      const prev = lines[i - 1] || '';
-      const parts = prev.split('\t').map((s) => s.replace(/\s+/g, ' ').trim()).filter(Boolean);
-      records.push({
-        name: parts[0] || '(unparsed)',
-        mothersMaidenSurname: parts[1] || '(none listed)',
-        year: m[1], quarter: m[2], district: m[3].trim(), volume: m[4], page: m[5],
-      });
-    }
-
-    const count = (tail.match(/(\d+)\s+Record\(s\) Found/) || [])[1];
-    console.log(`query: ${surname}${forename ? ' / ' + forename : ''} ${sex || ''} ${year} +/-${range}${district ? ' / ' + district : ''}`);
-    console.log(`records found: ${count ?? (records.length || 0)}`);
+    const records = text.split(/\n----- page \d+ of \d+ -----\n/).flatMap(parseResults);
+    const { count } = pageInfo(text);
+    console.log(`query: ${surname}${forename ? ' / ' + forename : ''} ${sex} ${year} +/-${range}${district ? ' / ' + district : ''}${mmn ? ' / mmn ' + mmn : ''}`);
+    console.log(`records found: ${count ?? records.length}${count != null && count !== records.length ? ` — parsed ${records.length} from ${fetched} of ${pages} page(s)` : ''}`);
     for (const r of records) {
       console.log(`  ${r.name}`);
       console.log(`    mother's maiden surname: ${r.mothersMaidenSurname}`);
