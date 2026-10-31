@@ -47,3 +47,50 @@ test('release manifest: identical contents pass; any drift is refused', async ()
   assert.deepEqual(compare(m, { ...m, files: { ...m.files, 'c.js': 'h3' } }), ['not in manifest: c.js']);
   assert.deepEqual(compare(m, { ...m, version: '1.0.1' }), ['version: manifest 1.0.0, package 1.0.1']);
 });
+
+test('fs-image neighbours: window offsets, film edges, DAS name/locator parsing and cross-check', async () => {
+  const { neighbourWindow, attachDas, parseDasName, dgsFromLocator, formatOffset, parseSpan, dasSiblingsExpr } = await import('../src/scripts/fs-image.js');
+  const arks = ['3:1:AAAA-0000', '3:1:AAAA-0001', '3:1:AAAA-0002', '3:1:AAAA-0003', '3:1:AAAA-0004'];
+  assert.deepEqual(neighbourWindow(arks, 2), [
+    { offset: -1, frame: 1, ark: '3:1:AAAA-0001' },
+    { offset: 0, frame: 2, ark: '3:1:AAAA-0002' },
+    { offset: 1, frame: 3, ark: '3:1:AAAA-0003' },
+  ]);
+  assert.deepEqual(neighbourWindow(arks, 2, 0, 2).map((r) => r.offset), [0, 1, 2]);
+  // Clipped at both ends of the film, never padded.
+  assert.deepEqual(neighbourWindow(arks, 0, 3, 1).map((r) => [r.offset, r.frame]), [[0, 0], [1, 1]]);
+  assert.deepEqual(neighbourWindow(arks, 4, 1, 5).map((r) => [r.offset, r.frame]), [[-1, 3], [0, 4]]);
+  assert.deepEqual(neighbourWindow(arks, -1), []);
+  assert.deepEqual(neighbourWindow(arks, 5), []);
+
+  assert.deepEqual(parseDasName('007540369_00155'), { dgs: '007540369', order: 155 });
+  assert.equal(parseDasName('not-a-frame'), null);
+  assert.equal(dgsFromLocator('dgs:007540369.007540369_00155'), '007540369');
+  assert.equal(dgsFromLocator('other:1.2'), null);
+
+  // DAS order is 1-based: frame index i ↔ order i + 1.
+  const children = [
+    { apid: 'TH-1', name: 'X_00002', order: 2 },
+    { apid: 'TH-SELF', name: 'X_00003', order: 3 },
+    { apid: 'TH-3', name: 'X_00004', order: 4 },
+  ];
+  const ok = attachDas(neighbourWindow(arks, 2), children, 'TH-SELF');
+  assert.equal(ok.agrees, true);
+  assert.deepEqual(ok.rows.map((r) => r.apid), ['TH-1', 'TH-SELF', 'TH-3']);
+  const off = attachDas(neighbourWindow(arks, 1), children, 'TH-SELF');
+  assert.equal(off.agrees, false);
+  assert.ok(off.rows.every((r) => r.apid === null && r.name === null));
+  assert.equal(attachDas(neighbourWindow(arks, 2), null, 'TH-SELF').agrees, false);
+
+  assert.deepEqual([-2, 0, 3].map(formatOffset), ['-2', '0', '+3']);
+  assert.equal(parseSpan(['neighbours', 'x'], '--back'), 1);
+  assert.equal(parseSpan(['--back', '0'], '--back'), 0);
+  assert.equal(parseSpan(['--fwd', '4'], '--fwd'), 4);
+  assert.throws(() => parseSpan(['--back', '-1'], '--back'), /non-negative/);
+  assert.throws(() => parseSpan(['--back', '--json'], '--back'), /non-negative/);
+  assert.throws(() => parseSpan(['--fwd'], '--fwd'), /non-negative/);
+
+  assert.match(dasSiblingsExpr('TH-1942-1'), /das\/v2\/" \+ "TH-1942-1" \+ '\/parents'/);
+  assert.throws(() => dasSiblingsExpr("TH'); alert(1)"), /not an apid/);
+  assert.throws(() => dasSiblingsExpr('TH-1', ' '), /must be non-empty/);
+});
