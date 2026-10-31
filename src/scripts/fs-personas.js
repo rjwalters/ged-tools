@@ -139,17 +139,27 @@ async function withPage(page, settleMs, fn) {
   }
 }
 
-async function guardSession(cdp) {
+export const SUBCOMMANDS = Object.freeze(['search', 'collections', 'record', 'session']);
+
+async function probeSession(cdp) {
   let probe;
   try {
     probe = JSON.parse(await evaluate(cdp, sessionProbeExpr()));
   } catch (e) {
     probe = { error: String(e.message ?? e) };
   }
-  const verdict = sessionVerdict(probe || {});
+  return { probe: probe || {}, verdict: sessionVerdict(probe || {}) };
+}
+
+export function sessionLine(verdict, probe) {
+  const label = verdict === 'ALIVE' ? 'SESSION ALIVE' : verdict === 'SIGNED_OUT' ? 'SIGNED OUT' : 'SESSION PROBE INCONCLUSIVE';
+  return `${label} — ${SESSION_PROBE_PATH} answered ${probe?.status ?? '?'} ${String(probe?.body ?? probe?.error ?? '').slice(0, 80)}`.trimEnd();
+}
+
+async function guardSession(cdp) {
+  const { probe, verdict } = await probeSession(cdp);
   if (verdict === 'ALIVE') return null;
-  const label = verdict === 'SIGNED_OUT' ? 'SIGNED OUT' : 'SESSION PROBE INCONCLUSIVE';
-  console.error(`${label} — ${SESSION_PROBE_PATH} answered ${probe?.status ?? '?'} ${String(probe?.body ?? probe?.error ?? '').slice(0, 80)}`);
+  console.error(sessionLine(verdict, probe));
   if (verdict === 'SIGNED_OUT') {
     console.error('Sign in once in the shared debug Chrome, then re-run. An empty result set from a');
     console.error('dead session is not a negative finding.');
@@ -262,6 +272,20 @@ async function recordCmd(pids, o) {
   });
 }
 
+async function sessionCmd(o) {
+  return withPage(SEARCH_PAGE, o.settleMs, async (cdp) => {
+    const { probe, verdict } = await probeSession(cdp);
+    if (o.asJson) {
+      console.log(JSON.stringify({ verdict, ...probe }, null, 1));
+    } else if (verdict === 'ALIVE') {
+      console.log(`SESSION ALIVE — ${SESSION_PROBE_PATH} answered HTTP ${probe.status}`);
+    } else {
+      console.error(sessionLine(verdict, probe));
+    }
+    return verdictExitCode(verdict);
+  });
+}
+
 function arg(argv, name, fallback = null) {
   const i = argv.indexOf(name);
   if (i === -1 || i + 1 >= argv.length) return fallback;
@@ -289,11 +313,16 @@ function usage() {
       records, whose cards are on Fold3 (and free at the National Archives:
       see nara-catalog). Fetches /platform/records/personas/<id> with the
       session as a bearer token
+  session [--json]
+      probe ${SESSION_PROBE_PATH} from a FamilySearch tab and print the verdict
+      (ALIVE / SIGNED OUT / INCONCLUSIVE) — the same probe search, collections
+      and record run first. For the deeper two-probe check (adds a real SLS
+      request) use \`ged-tools fs-fulltext session\`.
   --self-test                          pure-function tests; no browser, no lock
 
 EXIT CODES: 0 answered · 1 bad args · 2 signed out · 3 session probe inconclusive · 4 clean but empty
 
-Both verbs probe ${SESSION_PROBE_PATH} first: the debug Chrome's
+Every verb probes ${SESSION_PROBE_PATH} first: the debug Chrome's
 FamilySearch session lapses every 30-60 minutes in silence, and an empty
 result set from a dead session is not a negative finding.
 
@@ -308,7 +337,8 @@ async function main(argv) {
     usage();
     return cmd ? 0 : 1;
   }
-  if (cmd !== 'search' && cmd !== 'collections' && cmd !== 'record') {
+  if (!SUBCOMMANDS.includes(cmd)) {
+    console.error(`fs-personas: unknown subcommand "${cmd}" — expected one of ${SUBCOMMANDS.join(', ')}. Usage follows.\n`);
     usage();
     return 1;
   }
@@ -340,8 +370,9 @@ async function main(argv) {
     for (let i = 1; i < argv.length && !argv[i].startsWith('--'); i++) pids.push(argv[i]);
     return recordCmd(pids, o);
   }
+  if (cmd === 'session') return sessionCmd(o);
   return cmd === 'search' ? searchCmd(argv[1], o) : collectionsCmd(o);
 }
-export { FS_ORIGIN, main, usage, arg, searchCmd, recordCmd, withPage, sleep, SEARCH_PAGE, guardSession, collectionsCmd, COLLECTIONS_PAGE };
+export { FS_ORIGIN, main, usage, arg, searchCmd, recordCmd, withPage, sleep, SEARCH_PAGE, guardSession, collectionsCmd, COLLECTIONS_PAGE, sessionCmd, probeSession };
 
 function selfTest() { throw new Error("Run npm test in the ged-tools source checkout; private fixtures are not distributed."); }
