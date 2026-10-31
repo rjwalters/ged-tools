@@ -253,6 +253,12 @@ test('search resolves a location to its id, follows pages and stops at --max', a
     'https://www.findagrave.com/memorial/search?lastname=Example&location=Sample+County&locationId=county_1&page=2',
   ]);
   assert.deepEqual(r.hits.map((h) => h.id), ['1001', '1002', '1003']);
+  const logs = [];
+  const repeat = searchPage({ header: '3 matching records found for', cards: card(1002, 'bo-example', 'Bo Example', '') + card(1003, 'cy-example', 'Cy Example', '1900') });
+  const dedup = await search(fakeTransport((url) => (url.includes('page=2') ? repeat : RESULTS)), { last: 'Example' }, { max: 50, log: (m) => logs.push(m), delayMs: 0 });
+  assert.deepEqual(dedup.hits.map((h) => h.id), ['1001', '1002', '1003'], 'a record the site repeats on the next page is kept once');
+  assert.equal(dedup.duplicates, 1);
+  assert.match(logs.join('\n'), /dropped 1 record/);
   const capped = await search(fakeTransport(() => RESULTS), { last: 'Example' }, { max: 1, log: () => {}, delayMs: 0 });
   assert.equal(capped.hits.length, 1);
   assert.equal(capped.truncated, true);

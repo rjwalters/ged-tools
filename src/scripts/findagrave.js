@@ -32,6 +32,8 @@ export function usage() {
          [--birth-year YYYY [--birth-filter F]] [--death-year YYYY [--death-filter F]]
          [--location "<text>" | --location-id ID] [--max N=${PAGE_SIZE}] [--json]
       one line per result card: memorial id | URL | name | dates shown | cemetery | place
+      Records repeated across pages are dropped; the site's ordering is not
+      stable between pages, so deep paging can also skip records — narrow the query.
       F is one of ${YEAR_FILTERS.join('|')} (numbers are ± years; default exact).
       --location text is resolved to the site's own location id (the first
       typeahead match, printed on stderr) — the site IGNORES free-text location
@@ -64,6 +66,7 @@ ${browserLockHint(LOCK_NAME).join('\n')}`);
 
 const PAGE_STATE_EXPR = `(() => ({
   ready: document.readyState,
+  stale: window.__gedToolsStale === true,
   url: location.href,
   title: document.title,
   text: document.body ? document.body.innerText.slice(0, 4000) : '',
@@ -108,6 +111,9 @@ export async function cdpTransport({ waitMs = DEFAULT_WAIT_MS, log = console.err
   }
   let onOrigin = false;
   const load = async (url) => {
+    // Mark the current document: until the new one replaces it, a poll could
+    // read the OLD page's readyState === 'complete' (page 1 parsed as page 2).
+    try { await evaluate(cdp, 'window.__gedToolsStale = true'); } catch { /* no document yet */ }
     await cdp.send('Page.navigate', { url });
     const deadline = Date.now() + waitMs;
     let announced = false;
@@ -119,7 +125,7 @@ export async function cdpTransport({ waitMs = DEFAULT_WAIT_MS, log = console.err
       } catch {
         last = null; // mid-navigation: the execution context was replaced
       }
-      if (last?.ready === 'complete') {
+      if (last?.ready === 'complete' && !last.stale) {
         const kind = challengeKind(last);
         if (!kind) break;
         if (!announced) {
@@ -208,7 +214,13 @@ export async function search(transport, query, { max = PAGE_SIZE, log = console.
     q.locationId = found[0].id;
     log(`location: "${q.location}" → ${found[0].text} (${found[0].id})${found.length > 1 ? ` — first of ${found.length}; see \`findagrave locations\`` : ''}`);
   }
+  // The site's order among equally relevant results is not stable between
+  // page requests (measured: a page-2 record also served on page 1), so a
+  // record can repeat across pages — dropped here — or be skipped, which no
+  // client can detect. Narrow the query rather than paging deep.
   const hits = [];
+  const seen = new Set();
+  let duplicates = 0;
   let total = 0;
   let page = 1;
   let hasNext = false;
@@ -216,12 +228,19 @@ export async function search(transport, query, { max = PAGE_SIZE, log = console.
     const result = parseSearch(await transport.load(buildSearchUrl(q, page)));
     total = result.total;
     hasNext = result.hasNext;
-    hits.push(...result.hits);
+    for (const h of result.hits) {
+      if (seen.has(h.id)) duplicates += 1;
+      else {
+        seen.add(h.id);
+        hits.push(h);
+      }
+    }
     if (!hasNext || !result.hits.length || hits.length >= max) break;
     page += 1;
     await sleep(delayMs);
   }
-  return { query: q, total, hits: hits.slice(0, max), pages: page, truncated: hits.length > max || hasNext };
+  if (duplicates) log(`dropped ${duplicates} record(s) the site repeated across pages (its ordering is unstable; paging can also skip records — narrow the query for completeness)`);
+  return { query: q, total, hits: hits.slice(0, max), pages: page, duplicates, truncated: hits.length > max || hasNext };
 }
 
 export async function memorial(transport, ref, { accessed = todayStamp() } = {}) {
