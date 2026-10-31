@@ -54,6 +54,7 @@ const allowed = new Set([
   "src/scripts/matricula.js",
   "src/scripts/nara-catalog.js",
   "src/scripts/nj-archives.js",
+  "src/scripts/page-text.js",
   "src/scripts/prdh-couples.js",
   "src/scripts/prdh-familles.js",
   "src/scripts/prdh-record.js",
@@ -65,6 +66,7 @@ const allowed = new Set([
   "test/fs-helpers.test.js",
   "test/nara-catalog.test.js",
   "test/nj-archives.test.js",
+  "test/page-text.test.js",
   "test/research.test.js"
 ]);
 const packed = new Set([
@@ -112,6 +114,7 @@ const packed = new Set([
   "src/scripts/matricula.js",
   "src/scripts/nara-catalog.js",
   "src/scripts/nj-archives.js",
+  "src/scripts/page-text.js",
   "src/scripts/prdh-couples.js",
   "src/scripts/prdh-familles.js",
   "src/scripts/prdh-record.js",

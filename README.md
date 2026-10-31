@@ -78,6 +78,7 @@ commands. No command logs in to an account on import. Archion's explicit
 | `register-cache` | Address or deposit files into the shared frame cache |
 | `register-seek` | Locate a register frame by a supplied year/frame mapping |
 | `register-batch` | Batch retrieval with resumable progress and browser exclusion |
+| `page-text` | Print any page's text (or a `--selector`'s, plus `--links`) through the debug Chrome, waiting out a Cloudflare JS check — never solving it; `save` writes a binary response once the check clears |
 | `browser-lock` | Acquire, renew, inspect or release a browser mutex |
 
 There is no dedicated ScotlandsPeople adapter in this package. Scottish indexed

@@ -36,6 +36,7 @@
     "./scripts/fs-image": "./src/scripts/fs-image.js",
     "./scripts/nara-catalog": "./src/scripts/nara-catalog.js",
     "./scripts/nj-archives": "./src/scripts/nj-archives.js",
+    "./scripts/page-text": "./src/scripts/page-text.js",
     "./scripts/fs-catalog": "./src/scripts/fs-catalog.js",
     "./scripts/cdp-transport": "./src/scripts/cdp-transport.js",
     "./scripts/fs-film": "./src/scripts/fs-film.js",
