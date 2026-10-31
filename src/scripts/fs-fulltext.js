@@ -116,6 +116,38 @@ export function placeMatches(entryPlace, wanted) {
   return segs.length > 1 && segs.every((x) => have.includes(x));
 }
 
+export const SEARCH_PAGE_SIZE = 100;
+
+// The size of the next search page, or 0 when a cap says stop. --max caps the
+// entries fetched across ALL years of a --years run; --max-per-year caps each
+// year's own pagination window (default: no tighter than --max). Both count raw
+// fetched entries, before --place/--grep filtering.
+export function nextPageCount({ total, max, yearFetched, maxPerYear = Infinity, pageSize = SEARCH_PAGE_SIZE }) {
+  return Math.max(0, Math.min(pageSize, max - total, maxPerYear - yearFetched));
+}
+
+export function parseCap(argv, name, fallback) {
+  const raw = arg(argv, name);
+  if (raw === null) {
+    if (argv.includes(name)) throw new Error(`${name} needs a positive integer`);
+    return fallback;
+  }
+  const n = Number(raw);
+  if (!Number.isInteger(n) || n <= 0) throw new Error(`${name} wants a positive integer, got ${raw}`);
+  return n;
+}
+
+export function yearsSkippedNote(skipped, max) {
+  const years = (skipped ?? []).filter((y) => y != null);
+  if (!years.length) return [];
+  const span = years.length === 1 ? String(years[0]) : `${years[0]}-${years.at(-1)}`;
+  return [
+    `--max=${max} is a TOTAL across all years and was reached before ${span} (${years.length} year(s)) was searched.`,
+    'Those years were NOT asked — an absence there is unmeasured. Raise --max, narrow --years, or set',
+    '--max-per-year to spread the budget evenly.',
+  ];
+}
+
 export function filterNote({ fetched, kept, placeDropped = 0, grepDropped = 0, place = null, grep = null, max = 0, windowFull = false }) {
   if (!fetched) return [];
   const dropped = [];
@@ -382,19 +414,27 @@ async function searchCmd(query, o) {
     }
     const seen = new Map();
 
+    // --max is a TOTAL over every year; --max-per-year bounds each year's window.
+    // windowFull: some window ended on a full page because a cap stopped it, so
+    // there IS more behind it.
     let fetched = 0, placeDropped = 0, grepDropped = 0, windowFull = false;
-    for (const year of years) {
-      for (let offset = 0; offset < o.max; offset += 100) {
-        const j = await evalJson(cdp, searchExpr({ query, collection: o.collection, year, type: o.type, place: o.place, groups: o.groups, count: Math.min(100, o.max - offset), offset }));
+    let skippedYears = [];
+    for (const [yi, year] of years.entries()) {
+      if (fetched >= o.max) { skippedYears = years.slice(yi); windowFull = true; break; }
+      let yearFetched = 0;
+      for (;;) {
+        const count = nextPageCount({ total: fetched, max: o.max, yearFetched, maxPerYear: o.maxPerYear });
+        if (!count) { windowFull = true; break; }
+        const j = await evalJson(cdp, searchExpr({ query, collection: o.collection, year, type: o.type, place: o.place, groups: o.groups, count, offset: yearFetched }));
         if (j.error) { console.error(`search failed: ${j.error} ${j.body ?? ''}`); return 4; }
         for (const e of j.entries) {
           fetched++;
+          yearFetched++;
           if (o.place && !placeMatches(e.place, o.place)) { placeDropped++; continue; }
           if (o.grep && !new RegExp(o.grep, 'i').test(e.text)) { grepDropped++; continue; }
           seen.set(e.id, e);
         }
-        windowFull = j.entries.length === 100;
-        if (j.entries.length < 100) break;
+        if (j.entries.length < count) break;
       }
     }
     const hits = [...seen.values()];
@@ -414,6 +454,7 @@ async function searchCmd(query, o) {
     for (const line of filterNote({ fetched, kept: hits.length, placeDropped, grepDropped, place: o.place, grep: o.grep, max: o.max, windowFull })) {
       console.error(line);
     }
+    for (const line of yearsSkippedNote(skippedYears, o.max)) console.error(line);
 
     if (o.groups && frameMap.size) {
       const outside = hits.filter((e) => !frameMap.has(e.id)).length;
@@ -706,7 +747,13 @@ function usage() {
 
   search <query>  --collection <ftsId> [--year Y | --years A-B] [--type T]
                   [--place <substr>] [--group <dgs>[,<dgs>…]] [--max N=300]
-                  [--grep <re>] [--full] [--json]
+                  [--max-per-year N] [--grep <re>] [--full] [--json]
+      --max caps the entries FETCHED in total, across every year of a --years
+      range (before --place/--grep filtering). Years are walked in order, so a
+      broad query can spend the whole budget on the first years; when that
+      happens the run names the years it never searched. --max-per-year N caps
+      each year's own window as well (default: only --max applies), which
+      spreads the budget: --years 1784-1815 --max 640 --max-per-year 20.
       f.collectionId / f.recordYear / f.recordType are HARD server filters.
       --group is ALSO a hard filter, despite travelling as q.groupName: it sends
       m.queryRequireDefault=on with it (plus m.defaultFacets=on, which the site
@@ -809,6 +856,13 @@ async function main(argv) {
       return 1;
     }
   }
+  let caps;
+  try {
+    caps = { max: parseCap(argv, '--max', 300), maxPerYear: parseCap(argv, '--max-per-year', Infinity) };
+  } catch (e) {
+    console.error(String(e.message ?? e));
+    return 1;
+  }
   const o = {
     collection: arg(argv, '--collection'),
     year: arg(argv, '--year'),
@@ -817,7 +871,8 @@ async function main(argv) {
     place: arg(argv, '--place'),
     groups,
     grep: arg(argv, '--grep'),
-    max: Number(arg(argv, '--max', '300')),
+    max: caps.max,
+    maxPerYear: caps.maxPerYear,
     full: argv.includes('--full'),
     asJson: argv.includes('--json'),
     timeoutMs: Number(arg(argv, '--timeout', '120')) * 1000,
