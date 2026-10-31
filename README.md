@@ -65,7 +65,7 @@ commands. No command logs in to an account on import. Archion's explicit
 | `fs-film` | Browse or retrieve film frames, with session and download checks |
 | `fs-fulltext` | Full-text search, per-image OCR, film membership and session probes |
 | `fs-personas` | Indexed-record searches, including Scottish collections |
-| `fs-image` | Retrieve an image by caller-supplied ARK |
+| `fs-image` | Retrieve an image by caller-supplied ARK; list the frames either side of it on its film (`neighbours`) |
 | `fs-books` | Search a book's indexed text |
 | `fs-audit` | Compare a supplied tree root with a local GEDCOM (`--root PID=GED-ID`) |
 | `prdh-couples`, `prdh-familles` | List-only queries with URL guards against metered record endpoints |
