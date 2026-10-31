@@ -75,6 +75,7 @@ commands. No command logs in to an account on import. Archion's explicit
 | `matricula` | Parish/register discovery and page retrieval |
 | `gro-search` | England/Wales index search: surname and `--year YYYY` |
 | `freebmd` | England/Wales queries with known-positive controls before negative results |
+| `findagrave` | Find a Grave `search` (result cards, location resolved to the site's id) and `memorial` (dates, burial, plot, bio, family ids, citation) through the debug Chrome or `--http`; photo counts only, never photo downloads |
 | `register-cache` | Address or deposit files into the shared frame cache |
 | `register-seek` | Locate a register frame by a supplied year/frame mapping |
 | `register-batch` | Batch retrieval with resumable progress and browser exclusion |
