@@ -311,3 +311,22 @@ test('isJpeg: a zero-height JPEG (the server\'s answer past the page edge) is no
   assert.equal(isJpeg(Buffer.from([0xff, 0xd8, 0xff, 0xd9])), true); // no frame header: left to the decoder
   assert.equal(isJpeg(Buffer.from('<html>')), false);
 });
+
+test('grid completion: a cell refused once inside the grid is asked for again', async () => {
+  const calls = new Map();
+  const flaky = await completeGrid({ tileW: 1400, tileH: 1400, xs: [0, 1400], ys: [0, 1400] }, async ({ x, y }) => {
+    const k = `${x},${y}`;
+    calls.set(k, (calls.get(k) ?? 0) + 1);
+    if (x > 1400 || y > 1400) return { status: 500, body: null };
+    if (k === '1400,1400' && calls.get(k) === 1) return { status: 500, body: null };
+    return { status: 200, body: JPEG };
+  });
+  assert.deepEqual(flaky.missing, []);
+  assert.equal(flaky.tiles.length, 4);
+  assert.deepEqual(flaky.retried, [{ x: 1400, y: 1400, ok: true, status: 200 }]);
+  assert.equal(calls.get('0,0'), 1, 'good cells are not re-requested');
+
+  const dead = await completeGrid({ tileW: 1400, tileH: 1400, xs: [0, 1400], ys: [0] }, async ({ x, y }) =>
+    (x === 0 && y === 0 ? { status: 200, body: JPEG } : { status: 500, body: null }), { retries: 0 });
+  assert.deepEqual(dead.retried, []);
+});

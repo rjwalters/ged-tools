@@ -211,6 +211,7 @@ export async function savePage({ imageId, title, capturedUrls, outDir, fetchTile
     filledColumns: result.filledColumns,
     filledRows: result.filledRows,
     missing: result.missing,
+    retried: result.retried,
     complete,
     stitched: stitched ? 'full.jpg' : null,
     stitchNote,

@@ -297,9 +297,10 @@ export function jpegSize(body) {
  * Captured rows/columns first, then columns to the right (tested on the first
  * row) and rows below (kept while any column answers) until the server refuses.
  * A refusal while probing is the page edge; a refusal inside the final
- * rectangle is a hole and is reported in `missing`.
+ * rectangle is asked for again (`retries` passes) and, if still refused, is a
+ * hole reported in `missing`.
  */
-export async function completeGrid(grid, fetchTile, { maxProbe = MAX_PROBE_STEPS, onTile = () => {} } = {}) {
+export async function completeGrid(grid, fetchTile, { maxProbe = MAX_PROBE_STEPS, retries = 1, onTile = () => {} } = {}) {
   const { tileW, tileH } = grid;
   const cols = fillOffsets(grid.xs, tileW);
   const rows = fillOffsets(grid.ys, tileH);
@@ -339,6 +340,18 @@ export async function completeGrid(grid, fetchTile, { maxProbe = MAX_PROBE_STEPS
     probedRows.push(y);
   }
 
+  // A refusal inside the final rectangle is sometimes transient (HTTP 500 on
+  // one cell of an otherwise complete page): ask once more before calling it a hole.
+  const retried = [];
+  for (let n = 0; n < retries; n++) {
+    for (const y of ys) for (const x of xs) {
+      if (got.get(key(x, y)).ok) continue;
+      const again = await fetchCell(x, y);
+      retried.push({ x, y, ok: again.ok, status: again.status });
+      if (again.ok) got.set(key(x, y), again);
+    }
+  }
+
   const tiles = [];
   const missing = [];
   for (const y of ys) for (const x of xs) {
@@ -347,7 +360,7 @@ export async function completeGrid(grid, fetchTile, { maxProbe = MAX_PROBE_STEPS
     else missing.push({ x, y, status: t.status });
   }
   return {
-    tileW, tileH, xs, ys, tiles, missing,
+    tileW, tileH, xs, ys, tiles, missing, retried,
     probedColumns, probedRows,
     filledColumns: cols.added, filledRows: rows.added,
     // Reaching the cap means the edge was never seen: the page may be cut short.
