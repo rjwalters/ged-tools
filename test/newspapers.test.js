@@ -4,6 +4,8 @@ import { mkdtempSync, readFileSync, readdirSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import {
+  isJpeg,
+  jpegSize,
   MIN_INTERVAL_MS,
   NewspapersError,
   normalizeImageId,
@@ -298,4 +300,14 @@ test('locate: OCR words grouped to lines, matches boxed by word; absent tesserac
 test('argument parsing keeps flag values out of the positionals', () => {
   assert.deepEqual(parseArgs(['Jane Example', '--region', 'us-xx', '--json', '--count', '5']), { flags: { region: 'us-xx', json: true, count: '5' }, positional: ['Jane Example'] });
   assert.throws(() => parseArgs(['x', '--out']), (e) => e.code === 1);
+});
+
+test('isJpeg: a zero-height JPEG (the server\'s answer past the page edge) is not a tile', () => {
+  const sof = (h, w) => Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0x00, 0x04, 0x00, 0x00,
+    0xff, 0xc0, 0x00, 0x0b, 0x08, h >> 8, h & 0xff, w >> 8, w & 0xff, 0x01, 0x01, 0x11, 0x00, 0xff, 0xd9]);
+  assert.deepEqual(jpegSize(sof(1388, 1276)), { height: 1388, width: 1276 });
+  assert.equal(isJpeg(sof(1388, 1276)), true);
+  assert.equal(isJpeg(sof(0, 1276)), false);
+  assert.equal(isJpeg(Buffer.from([0xff, 0xd8, 0xff, 0xd9])), true); // no frame header: left to the decoder
+  assert.equal(isJpeg(Buffer.from('<html>')), false);
 });

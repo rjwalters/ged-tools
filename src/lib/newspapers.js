@@ -262,8 +262,34 @@ export function fillOffsets(captured, step) {
   return { all, added: all.filter((v) => !captured.includes(v)) };
 }
 
+/**
+ * A usable tile: a JPEG whose frame header declares a non-zero size. Past the
+ * bottom edge of a page whose height is an exact multiple of the cell, the
+ * image server answers 200 with a ~330-byte JPEG of height 0 ("Empty JPEG
+ * image" to a decoder) instead of refusing — that is the page edge, not a tile.
+ */
 export function isJpeg(body) {
-  return Boolean(body) && body.length > 3 && body[0] === 0xff && body[1] === 0xd8;
+  if (!body || body.length <= 3 || body[0] !== 0xff || body[1] !== 0xd8) return false;
+  const size = jpegSize(body);
+  return size === null || (size.width > 0 && size.height > 0);
+}
+
+/** Width/height from the first SOFn segment, or null if none is found. */
+export function jpegSize(body) {
+  let i = 2;
+  while (i + 9 < body.length) {
+    if (body[i] !== 0xff) return null;
+    const marker = body[i + 1];
+    if (marker === 0xd8 || (marker >= 0xd0 && marker <= 0xd7) || marker === 0x01) { i += 2; continue; }
+    if (marker === 0xda || marker === 0xd9) return null;
+    const len = (body[i + 2] << 8) | body[i + 3];
+    if (marker >= 0xc0 && marker <= 0xcf && marker !== 0xc4 && marker !== 0xc8 && marker !== 0xcc) {
+      return { height: (body[i + 5] << 8) | body[i + 6], width: (body[i + 7] << 8) | body[i + 8] };
+    }
+    if (len < 2) return null;
+    i += 2 + len;
+  }
+  return null;
 }
 
 /**
