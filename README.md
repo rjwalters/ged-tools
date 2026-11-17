@@ -3,7 +3,8 @@
 Node.js utilities for GEDCOM editing and genealogy archive research. Includes
 FamilySearch, PRDH (Québec), Archion, Matricula, GRO and FreeBMD adapters.
 Requires Node.js 22 or later. Playwright is an optional peer dependency needed
-by GRO, PRDH search/record, and FamilySearch books/tree-audit commands; the
+by GRO, PRDH search/record, FamilySearch books/tree-audit and the newspapers
+page command; the
 remaining commands use native HTTP or the Chrome DevTools Protocol (CDP).
 
 This package is [MIT licensed](LICENSE). Source and releases are available at
@@ -78,6 +79,7 @@ commands. No command logs in to an account on import. Archion's explicit
 | `register-cache` | Address or deposit files into the shared frame cache |
 | `register-seek` | Locate a register frame by a supplied year/frame mapping |
 | `register-batch` | Batch retrieval with resumable progress and browser exclusion |
+| `newspapers` | Newspapers.com page-level keyword search (plain HTTP); full-page image tiles via the signed-in browser |
 | `browser-lock` | Acquire, renew, inspect or release a browser mutex |
 
 There is no dedicated ScotlandsPeople adapter in this package. Scottish indexed
