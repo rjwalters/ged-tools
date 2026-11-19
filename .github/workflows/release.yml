@@ -9,9 +9,11 @@
 #
 # Publishing uses npm trusted publishing (OIDC): no npm token is stored
 # anywhere. It is configured on npmjs.com for @rjwalters/ged-tools with
-# direct publish allowed (the maintainer's choice, for convenience): a tag
-# that passes the manifest check goes live. To require approval instead,
-# untick direct publish there and change the last step to `npm stage publish`.
+# direct publish allowed, and that trust is bound to the `npm-publish`
+# environment, which requires the owner's approval: a tag that passes the
+# manifest check goes live once the owner approves the job. Register it with
+#   npm trust github @rjwalters/ged-tools --file release.yml \
+#     --repo rjwalters/ged-tools --env npm-publish --allow-publish
 name: release
 
 on:
@@ -25,6 +27,10 @@ permissions:
 jobs:
   publish:
     runs-on: ubuntu-latest
+    # Protected environment: the owner approves every publish before it runs.
+    environment:
+      name: npm-publish
+      url: https://www.npmjs.com/package/@rjwalters/ged-tools
     steps:
       - uses: actions/checkout@v4
 
